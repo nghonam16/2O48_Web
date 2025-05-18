@@ -62,14 +62,8 @@
   </div>
 
   <script>
-    let matrix = [
-      [0, 0, 0, 0],
-      [0, 0, 0, 0],
-      [0, 0, 0, 0],
-      [0, 0, 0, 0]
-    ];
+    let matrix = Array.from({ length: 4 }, () => Array(4).fill(0));
     let score = 0;
-
     let undoStack = [];
     let redoStack = [];
 
@@ -100,7 +94,8 @@
           arr[i + 1] = 0;
         }
       }
-      return [...arr.filter(v => v !== 0), ...Array(4 - arr.filter(v => v !== 0).length).fill(0)];
+      arr = arr.filter(v => v !== 0);
+      return [...arr, ...Array(4 - arr.length).fill(0)];
     }
 
     function pushUndo() {
@@ -145,14 +140,14 @@
     }
 
     function spawnTile() {
-      let empty = [];
+      const empty = [];
       matrix.forEach((row, i) =>
         row.forEach((cell, j) => {
           if (cell === 0) empty.push([i, j]);
         })
       );
       if (empty.length === 0) return;
-      let [i, j] = empty[Math.floor(Math.random() * empty.length)];
+      const [i, j] = empty[Math.floor(Math.random() * empty.length)];
       matrix[i][j] = Math.random() < 0.9 ? 2 : 4;
     }
 
@@ -181,36 +176,42 @@
     }
 
     function saveGame() {
+      const username = localStorage.getItem("username") || "player1";
       fetch('/api/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: "player1",
+          username: username,
           matrix: matrix,
           score: score
         })
       })
       .then(res => res.json())
-      .then(data => alert(data.reply))
-      .catch(err => alert("Lỗi khi lưu!"));
+      .then(data => alert(data.message || "Đã lưu thành công!"))
+      .catch(() => alert("Lỗi khi lưu trò chơi!"));
     }
 
     function loadGame() {
-      fetch('/api/load?username=player1')
-        .then(res => res.json())
-        .then(data => {
-          if (data.matrix && data.score !== undefined) {
-            matrix = data.matrix;
-            score = data.score;
-          } else {
-            spawnTile(); spawnTile();
-          }
-          renderGrid();
-        })
-        .catch(err => {
+      const username = localStorage.getItem("username") || "player1";
+      fetch('/api/load', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.matrix && data.score !== undefined) {
+          matrix = data.matrix;
+          score = data.score;
+        } else {
           spawnTile(); spawnTile();
-          renderGrid();
-        });
+        }
+        renderGrid();
+      })
+      .catch(() => {
+        spawnTile(); spawnTile();
+        renderGrid();
+      });
     }
 
     function exitToMenu() {
