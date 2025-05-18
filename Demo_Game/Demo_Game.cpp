@@ -32,7 +32,7 @@ int main() {
     // Trả về giao diện menu chính
     CROW_ROUTE(app, "/")([] {
         return read_file("static/menu.html");
-        });
+    });
 
     // Phục vụ file tĩnh
     CROW_ROUTE(app, "/static/<string>")([](std::string filename) {
@@ -40,25 +40,25 @@ int main() {
         std::string content = read_file(path);
         if (content.empty()) return crow::response(404);
         return crow::response(content);
-        });
+    });
 
     // API - New Game
     CROW_ROUTE(app, "/new-game").methods("POST"_method)([] {
         resetGame();
         return crow::response(200);
-        });
+    });
 
     // API - Resume Game
     CROW_ROUTE(app, "/resume").methods("GET"_method)([] {
         if (hasSavedGame()) return crow::response(200);
         return crow::response(404);
-        });
+    });
 
     // API - Exit
     CROW_ROUTE(app, "/exit").methods("POST"_method)([] {
         // Tùy ý xử lý, frontend có thể tự đóng trang
         return crow::response("Tạm biệt!");
-        });
+    });
 
     app.port(18080).multithreaded().run();
 
@@ -75,7 +75,7 @@ int main() {
 
         userDB[username] = password;
         return crow::response{ crow::json::wvalue{{"message", "Đăng ký thành công!"}} };
-        });
+    });
 
     CROW_ROUTE(app, "/api/login").methods("POST"_method)([](const crow::request& req) {
         auto data = crow::json::load(req.body);
@@ -89,7 +89,7 @@ int main() {
         }
 
         return crow::response{ crow::json::wvalue{{"message", "Sai tài khoản hoặc mật khẩu!"}} };
-        });
+    });
 
     CROW_ROUTE(app, "/api/save").methods("POST"_method)([](const crow::request& req) {
         auto data = crow::json::load(req.body);
@@ -117,65 +117,96 @@ int main() {
         crow::json::wvalue res;
         res["reply"] = "Lưu trạng thái thành công cho " + username;
         return crow::response{ res };
-        });
+     });
 
-    // Route API: Tải lại trạng thái người chơi
     CROW_ROUTE(app, "/api/load").methods("POST"_method)([](const crow::request& req) {
         auto data = crow::json::load(req.body);
         if (!data || !data.has("username"))
-            return crow::response(400);
+            return crow::response(400, "Thiếu tên người dùng");
 
         std::string username = data["username"].s();
-        std::string filename = "save/" + username + ".txt";
+        std::ifstream in("save/" + username + ".bin", std::ios::binary);
+        if (!in) return crow::response(404, "Không tìm thấy file lưu.");
 
-        std::ifstream ifs(filename);
-        if (!ifs) {
-            crow::json::wvalue res;
-            res["error"] = "Không tìm thấy trạng thái.";
-            return crow::response(404, res);
-        }
+        int matrix[4][4], score;
 
-        int score;
-        int matrix[4][4];
-
-        ifs >> score;
+        // Đọc ma trận
         for (int i = 0; i < 4; ++i)
             for (int j = 0; j < 4; ++j)
-                ifs >> matrix[i][j];
+                in.read(reinterpret_cast<char*>(&matrix[i][j]), sizeof(int));
+
+        // Đọc điểm số
+        in.read(reinterpret_cast<char*>(&score), sizeof(int));
+        in.close();
 
         crow::json::wvalue res;
+        crow::json::wvalue matrix_json;
+
+        for (int i = 0; i < 4; ++i) {
+            crow::json::wvalue row;
+            for (int j = 0; j < 4; ++j)
+                row[j] = matrix[i][j];
+            matrix_json[i] = row;
+        }
+
+        res["matrix"] = matrix_json;
         res["score"] = score;
 
-        crow::json::wvalue mat_json;
+        return crow::response(res);
+    });
+
+
+    // Route API: Tải lại trạng thái người chơi
+    CROW_ROUTE(app, "/api/save").methods("POST"_method)([](const crow::request& req) {
+        auto data = crow::json::load(req.body);
+        if (!data || !data.has("username") || !data.has("matrix") || !data.has("score"))
+            return crow::response(400, "Invalid JSON");
+
+        std::string username = data["username"].s();
+        auto matrix = data["matrix"];
+        int score = data["score"].i();
+
+        std::ofstream out("save/" + username + ".bin", std::ios::binary);
+        if (!out) return crow::response(500, "Không thể mở file để ghi.");
+
+        // Ghi ma trận 4x4 vào file nhị phân
         for (int i = 0; i < 4; ++i)
-            for (int j = 0; j < 4; ++j)
-                mat_json[i][j] = matrix[i][j];
+            for (int j = 0; j < 4; ++j) {
+                int val = matrix[i][j].i();
+                out.write(reinterpret_cast<char*>(&val), sizeof(int));
+            }
 
-        res["matrix"] = mat_json;
+        // Ghi điểm số
+        out.write(reinterpret_cast<char*>(&score), sizeof(int));
 
-        return crow::response{ res };
-        });
+        out.close();
+
+        crow::json::wvalue res;
+        res["message"] = "Lưu trạng thái thành công!";
+        return crow::response(res);
+       });
+
+    // Route khởi tạo game mới
+    CROW_ROUTE(app, "/new-game").methods("POST"_method)([]() {
+        // TODO: Reset trạng thái người chơi ở đây
+        std::ofstream save("save.json");
+        save << R"({"matrix":[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]],"score":0})";
+        save.close();
+
+        return crow::response(200);
+    });
+
+    // Route resume game
+    CROW_ROUTE(app, "/resume").methods("GET"_method)([]() {
+        std::ifstream save("save.json");
+        if (!save) return crow::response(404);
+        return crow::response(200);  // Có thể gửi lại data ở đây nếu cần
+    });
+
+    // Route game.html (hiển thị lưới 2048 sau khi nhấn New Game / Resume)
+    CROW_ROUTE(app, "/game.html")([] {
+        return read_file("static/game.html");  // Tạo file này
+    });
 
 }
 
-// Route khởi tạo game mới
-CROW_ROUTE(app, "/new-game").methods("POST"_method)([]() {
-    // TODO: Reset trạng thái người chơi ở đây
-    std::ofstream save("save.json");
-    save << R"({"matrix":[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]],"score":0})";
-    save.close();
-
-    return crow::response(200);
-    });
-
-// Route resume game
-CROW_ROUTE(app, "/resume").methods("GET"_method)([]() {
-    std::ifstream save("save.json");
-    if (!save) return crow::response(404);
-    return crow::response(200);  // Có thể gửi lại data ở đây nếu cần
-    });
-
-// Route game.html (hiển thị lưới 2048 sau khi nhấn New Game / Resume)
-CROW_ROUTE(app, "/game.html")([] {
-    return read_file("static/game.html");  // Tạo file này
-    });
