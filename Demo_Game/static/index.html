@@ -1,14 +1,68 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Demo Crow</title>
-    <link rel="stylesheet" href="/static/style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>2048 Menu</title>
+  <style>
+    body {
+      background-color: #faf8ef;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .menu-container {
+      text-align: center;
+      background: #bbada0;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    .menu-container h1 {
+      color: white;
+      margin-bottom: 30px;
+    }
+    button {
+      display: block;
+      width: 200px;
+      padding: 15px;
+      margin: 10px auto;
+      font-size: 18px;
+      background: #eee4da;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #f2b179;
+    }
+  </style>
 </head>
 <body>
-    <h1>Welcome to 2048</h1>
-    <p id="message"></p>
+  <div class="menu-container">
+    <h1>2048 Game Menu</h1>
+    <button onclick="newGame()">New Game</button>
+    <button onclick="resumeGame()">Resume</button>
+    <button onclick="exitGame()">Exit</button>
+  </div>
 
-    <script src="/static/script.js"></script>
+  <script>
+    function newGame() {
+      fetch('/new-game', { method: 'POST' })
+        .then(res => res.ok ? window.location.href = "/game.html" : alert("Error"))
+    }
+
+    function resumeGame() {
+      fetch('/resume', { method: 'GET' })
+        .then(res => res.ok ? window.location.href = "/game.html" : alert("No saved game found."))
+    }
+
+    function exitGame() {
+      window.close(); // Hoặc bạn có thể redirect đến trang "goodbye"
+    }
+  </script>
 </body>
 </html>
