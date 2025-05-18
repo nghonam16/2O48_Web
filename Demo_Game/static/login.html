@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Đăng nhập / Đăng ký</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <h2>Đăng nhập / Đăng ký</h2>
+
+  <form id="auth-form">
+    <input type="text" id="username" placeholder="Tên đăng nhập" required><br>
+    <input type="password" id="password" placeholder="Mật khẩu" required><br>
+    
+    <button type="button" onclick="login()">Đăng nhập</button>
+    <button type="button" onclick="register()">Đăng ký</button>
+  </form>
+
+  <p id="response"></p>
+
+  <script src="/static/auth.js"></script>
+</body>
+</html>
