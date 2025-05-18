@@ -1,6 +1,9 @@
-﻿#include "include/crow_all.h"  // nếu bạn để crow_all.h trong thư mục include
+﻿#include "include/crow_all.h"
 #include <fstream>
 #include <sstream>
+#include <map>
+
+std::map<std::string, std::string> userDB;
 
 std::string read_file(const std::string& filename) {
     std::ifstream ifs(filename);
@@ -10,15 +13,28 @@ std::string read_file(const std::string& filename) {
     return buffer.str();
 }
 
+// Reset trạng thái game
+void resetGame() {
+    std::ofstream ofs("data/savegame.txt");
+    ofs << "NEW_GAME_STATE";
+    ofs.close();
+}
+
+// Kiểm tra trạng thái đã lưu
+bool hasSavedGame() {
+    std::ifstream ifs("data/savegame.txt");
+    return ifs.good();
+}
+
 int main() {
     crow::SimpleApp app;
 
-    // Trả về giao diện chính
+    // Trả về giao diện menu chính
     CROW_ROUTE(app, "/")([] {
-        return read_file("static/index.html");
+        return read_file("static/menu.html");
         });
 
-    // Trả về các file tĩnh (style.css, script.js)
+    // Phục vụ file tĩnh
     CROW_ROUTE(app, "/static/<string>")([](std::string filename) {
         std::string path = "static/" + filename;
         std::string content = read_file(path);
@@ -26,18 +42,53 @@ int main() {
         return crow::response(content);
         });
 
-    // API trả về lời chào (demo kết nối frontend → backend)
-    CROW_ROUTE(app, "/api/hello").methods("POST"_method)([](const crow::request& req) {
-        auto data = crow::json::load(req.body);
-        if (!data) return crow::response(400);
+    // API - New Game
+    CROW_ROUTE(app, "/new-game").methods("POST"_method)([] {
+        resetGame();
+        return crow::response(200);
+        });
 
-        std::string name = data["name"].s();
-        std::string message = "Xin chào, " + name + " từ C++ backend!";
+    // API - Resume Game
+    CROW_ROUTE(app, "/resume").methods("GET"_method)([] {
+        if (hasSavedGame()) return crow::response(200);
+        return crow::response(404);
+        });
 
-        crow::json::wvalue res;
-        res["reply"] = message;
-        return crow::response{ res };
+    // API - Exit
+    CROW_ROUTE(app, "/exit").methods("POST"_method)([] {
+        // Tùy ý xử lý, frontend có thể tự đóng trang
+        return crow::response("Tạm biệt!");
         });
 
     app.port(18080).multithreaded().run();
+
+    CROW_ROUTE(app, "/api/register").methods("POST"_method)([](const crow::request& req) {
+        auto data = crow::json::load(req.body);
+        if (!data) return crow::response(400);
+
+        std::string username = data["username"].s();
+        std::string password = data["password"].s();
+
+        if (userDB.count(username)) {
+            return crow::response{ crow::json::wvalue{{"message", "Tài khoản đã tồn tại!"}} };
+        }
+
+        userDB[username] = password;
+        return crow::response{ crow::json::wvalue{{"message", "Đăng ký thành công!"}} };
+        });
+
+    CROW_ROUTE(app, "/api/login").methods("POST"_method)([](const crow::request& req) {
+        auto data = crow::json::load(req.body);
+        if (!data) return crow::response(400);
+
+        std::string username = data["username"].s();
+        std::string password = data["password"].s();
+
+        if (userDB.count(username) && userDB[username] == password) {
+            return crow::response{ crow::json::wvalue{{"message", "Đăng nhập thành công!"}} };
+        }
+
+        return crow::response{ crow::json::wvalue{{"message", "Sai tài khoản hoặc mật khẩu!"}} };
+        });
 }
+
