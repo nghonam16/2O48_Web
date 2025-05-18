@@ -66,3 +66,44 @@ function loadGameState(username) {
         alert("Không thể tải trạng thái game.");
     });
 }
+
+let undoStack = [];
+let redoStack = [];
+
+function pushUndo() {
+  undoStack.push({
+    matrix: JSON.parse(JSON.stringify(matrix)),
+    score: score
+  });
+  // Khi có hành động mới, xóa redoStack
+  redoStack = [];
+}
+
+function undo() {
+  if (undoStack.length === 0) return alert("Không thể undo!");
+
+  redoStack.push({
+    matrix: JSON.parse(JSON.stringify(matrix)),
+    score: score
+  });
+
+  const prev = undoStack.pop();
+  matrix = JSON.parse(JSON.stringify(prev.matrix));
+  score = prev.score;
+  renderGrid();
+}
+
+function redo() {
+  if (redoStack.length === 0) return alert("Không thể redo!");
+
+  undoStack.push({
+    matrix: JSON.parse(JSON.stringify(matrix)),
+    score: score
+  });
+
+  const next = redoStack.pop();
+  matrix = JSON.parse(JSON.stringify(next.matrix));
+  score = next.score;
+  renderGrid();
+}
+
