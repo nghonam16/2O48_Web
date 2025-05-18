@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>2048 Game</title>
+  <style>
+    body {
+      background-color: #faf8ef;
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      margin: 0;
+    }
+    h1 {
+      color: #776e65;
+      padding-top: 20px;
+    }
+    .score-board {
+      margin: 10px auto;
+      padding: 10px 20px;
+      background: #bbada0;
+      color: white;
+      border-radius: 8px;
+      display: inline-block;
+    }
+    .grid {
+      width: 400px;
+      margin: 20px auto;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .cell {
+      width: 90px;
+      height: 90px;
+      background: #cdc1b4;
+      font-size: 24px;
+      line-height: 90px;
+      color: #776e65;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+    .buttons {
+      margin-top: 20px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 0 5px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>2048</h1>
+  <div class="score-board">Score: <span id="score">0</span></div>
+  <div class="grid" id="grid">
+    <!-- JavaScript sẽ tạo ô -->
+  </div>
+  <div class="buttons">
+    <button onclick="saveGame()">Lưu</button>
+    <button onclick="undo()">Undo</button>
+    <button onclick="redo()">Redo</button>
+    <button onclick="exitToMenu()">Thoát</button>
+  </div>
+
+  <script>
+    const exampleMatrix = [
+      [0, 2, 0, 2],
+      [4, 0, 8, 0],
+      [0, 0, 0, 0],
+      [16, 0, 0, 2]
+    ];
+    const score = 1234;
+
+    function renderGrid(matrix) {
+      const grid = document.getElementById("grid");
+      grid.innerHTML = "";
+      matrix.forEach(row => {
+        row.forEach(cell => {
+          const div = document.createElement("div");
+          div.className = "cell";
+          div.textContent = cell === 0 ? "" : cell;
+          grid.appendChild(div);
+        });
+      });
+      document.getElementById("score").textContent = score;
+    }
+
+    function saveGame() {
+      // Tạm thời dùng dữ liệu mẫu
+      fetch('/api/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: "player1",
+          matrix: exampleMatrix,
+          score: score
+        })
+      })
+      .then(res => res.json())
+      .then(data => alert(data.reply))
+      .catch(err => alert("Lỗi khi lưu!"));
+    }
+
+    function undo() {
+      alert("Undo chưa được cài");
+    }
+
+    function redo() {
+      alert("Redo chưa được cài");
+    }
+
+    function exitToMenu() {
+      window.location.href = "/";
+    }
+
+    renderGrid(exampleMatrix);
+  </script>
+</body>
+</html>
