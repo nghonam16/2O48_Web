@@ -48,11 +48,17 @@
       font-size: 16px;
       cursor: pointer;
     }
+    .user-info {
+      margin-top: 10px;
+      color: #555;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
   <h1>2048</h1>
   <div class="score-board">Score: <span id="score">0</span></div>
+  <div class="user-info">Người chơi: <span id="usernameDisplay"></span></div>
   <div class="grid" id="grid"></div>
   <div class="buttons">
     <button onclick="saveGame()">Lưu</button>
@@ -62,10 +68,23 @@
   </div>
 
   <script>
-    let matrix = Array.from({ length: 4 }, () => Array(4).fill(0));
+    let matrix = [
+      [0, 0, 0, 0],
+      [0, 0, 0, 0],
+      [0, 0, 0, 0],
+      [0, 0, 0, 0]
+    ];
     let score = 0;
     let undoStack = [];
     let redoStack = [];
+    const username = localStorage.getItem("username");
+
+    if (!username) {
+      alert("Bạn chưa đăng nhập! Quay lại trang đăng nhập.");
+      window.location.href = "/login.html";
+    }
+
+    document.getElementById("usernameDisplay").textContent = username;
 
     function renderGrid() {
       const grid = document.getElementById("grid");
@@ -94,8 +113,7 @@
           arr[i + 1] = 0;
         }
       }
-      arr = arr.filter(v => v !== 0);
-      return [...arr, ...Array(4 - arr.length).fill(0)];
+      return [...arr.filter(v => v !== 0), ...Array(4 - arr.filter(v => v !== 0).length).fill(0)];
     }
 
     function pushUndo() {
@@ -140,14 +158,14 @@
     }
 
     function spawnTile() {
-      const empty = [];
+      let empty = [];
       matrix.forEach((row, i) =>
         row.forEach((cell, j) => {
           if (cell === 0) empty.push([i, j]);
         })
       );
       if (empty.length === 0) return;
-      const [i, j] = empty[Math.floor(Math.random() * empty.length)];
+      let [i, j] = empty[Math.floor(Math.random() * empty.length)];
       matrix[i][j] = Math.random() < 0.9 ? 2 : 4;
     }
 
@@ -176,7 +194,6 @@
     }
 
     function saveGame() {
-      const username = localStorage.getItem("username") || "player1";
       fetch('/api/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -187,35 +204,30 @@
         })
       })
       .then(res => res.json())
-      .then(data => alert(data.message || "Đã lưu thành công!"))
-      .catch(() => alert("Lỗi khi lưu trò chơi!"));
+      .then(data => alert(data.reply || "Đã lưu thành công!"))
+      .catch(err => alert("Lỗi khi lưu!"));
     }
 
     function loadGame() {
-      const username = localStorage.getItem("username") || "player1";
-      fetch('/api/load', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.matrix && data.score !== undefined) {
-          matrix = data.matrix;
-          score = data.score;
-        } else {
+      fetch(`/api/load?username=${username}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.matrix && data.score !== undefined) {
+            matrix = data.matrix;
+            score = data.score;
+          } else {
+            spawnTile(); spawnTile();
+          }
+          renderGrid();
+        })
+        .catch(err => {
           spawnTile(); spawnTile();
-        }
-        renderGrid();
-      })
-      .catch(() => {
-        spawnTile(); spawnTile();
-        renderGrid();
-      });
+          renderGrid();
+        });
     }
 
     function exitToMenu() {
-      window.location.href = "/";
+      window.location.href = "/menu.html";
     }
 
     document.addEventListener("keydown", e => {
