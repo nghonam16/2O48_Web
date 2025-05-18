@@ -119,5 +119,42 @@ int main() {
         return crow::response{ res };
         });
 
+    // Route API: Tải lại trạng thái người chơi
+    CROW_ROUTE(app, "/api/load").methods("POST"_method)([](const crow::request& req) {
+        auto data = crow::json::load(req.body);
+        if (!data || !data.has("username"))
+            return crow::response(400);
+
+        std::string username = data["username"].s();
+        std::string filename = "save/" + username + ".txt";
+
+        std::ifstream ifs(filename);
+        if (!ifs) {
+            crow::json::wvalue res;
+            res["error"] = "Không tìm thấy trạng thái.";
+            return crow::response(404, res);
+        }
+
+        int score;
+        int matrix[4][4];
+
+        ifs >> score;
+        for (int i = 0; i < 4; ++i)
+            for (int j = 0; j < 4; ++j)
+                ifs >> matrix[i][j];
+
+        crow::json::wvalue res;
+        res["score"] = score;
+
+        crow::json::wvalue mat_json;
+        for (int i = 0; i < 4; ++i)
+            for (int j = 0; j < 4; ++j)
+                mat_json[i][j] = matrix[i][j];
+
+        res["matrix"] = mat_json;
+
+        return crow::response{ res };
+        });
+
 }
 
