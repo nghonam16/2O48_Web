@@ -54,7 +54,7 @@
   <h1>2048</h1>
   <div class="score-board">Score: <span id="score">0</span></div>
   <div class="grid" id="grid">
-    <!-- JavaScript sẽ tạo ô -->
+    
   </div>
   <div class="buttons">
     <button onclick="saveGame()">Lưu</button>
@@ -104,6 +104,7 @@
 
   function moveLeft() {
     let moved = false;
+    pushUndo();
     for (let i = 0; i < 4; i++) {
       const newRow = slide(matrix[i]);
       if (newRow.toString() !== matrix[i].toString()) moved = true;
@@ -114,18 +115,21 @@
   }
 
   function moveRight() {
+    pushUndo();
     matrix = matrix.map(row => row.reverse());
     moveLeft();
     matrix = matrix.map(row => row.reverse());
   }
 
   function moveUp() {
+    pushUndo();
     matrix = rotateMatrix(matrix);
     moveLeft();
     matrix = rotateMatrix(rotateMatrix(rotateMatrix(matrix)));
   }
 
   function moveDown() {
+    pushUndo();
     matrix = rotateMatrix(matrix);
     moveRight();
     matrix = rotateMatrix(rotateMatrix(rotateMatrix(matrix)));
@@ -172,6 +176,42 @@
   function exitToMenu() { window.location.href = "/"; }
 
   renderGrid();
+
+  let undoStack = [];
+let redoStack = [];
+
+function pushUndo() {
+  undoStack.push({
+    matrix: JSON.parse(JSON.stringify(matrix)),
+    score: score
+  });
+  redoStack = []; // clear redo stack after new move
+}
+
+function undo() {
+  if (undoStack.length === 0) return alert("Không thể undo!");
+  redoStack.push({
+    matrix: JSON.parse(JSON.stringify(matrix)),
+    score: score
+  });
+  const prev = undoStack.pop();
+  matrix = JSON.parse(JSON.stringify(prev.matrix));
+  score = prev.score;
+  renderGrid();
+}
+
+function redo() {
+  if (redoStack.length === 0) return alert("Không thể redo!");
+  undoStack.push({
+    matrix: JSON.parse(JSON.stringify(matrix)),
+    score: score
+  });
+  const next = redoStack.pop();
+  matrix = JSON.parse(JSON.stringify(next.matrix));
+  score = next.score;
+  renderGrid();
+}
+
 </script>
 
 </body>
