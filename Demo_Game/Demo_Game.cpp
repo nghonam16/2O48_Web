@@ -158,3 +158,24 @@ int main() {
 
 }
 
+// Route khởi tạo game mới
+CROW_ROUTE(app, "/new-game").methods("POST"_method)([]() {
+    // TODO: Reset trạng thái người chơi ở đây
+    std::ofstream save("save.json");
+    save << R"({"matrix":[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]],"score":0})";
+    save.close();
+
+    return crow::response(200);
+    });
+
+// Route resume game
+CROW_ROUTE(app, "/resume").methods("GET"_method)([]() {
+    std::ifstream save("save.json");
+    if (!save) return crow::response(404);
+    return crow::response(200);  // Có thể gửi lại data ở đây nếu cần
+    });
+
+// Route game.html (hiển thị lưới 2048 sau khi nhấn New Game / Resume)
+CROW_ROUTE(app, "/game.html")([] {
+    return read_file("static/game.html");  // Tạo file này
+    });
