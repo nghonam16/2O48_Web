@@ -2,103 +2,83 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>2048 - Menu</title>
+  <title>Menu - 2048</title>
   <style>
     body {
-      background-color: #faf8ef;
+      background-color: #f5f5dc;
       font-family: 'Segoe UI', sans-serif;
       text-align: center;
-      padding-top: 100px;
+      margin-top: 100px;
     }
     h1 {
-      color: #776e65;
       font-size: 48px;
+      color: #776e65;
     }
-    input {
-      padding: 10px;
+    .username {
       font-size: 18px;
-      margin-top: 20px;
-      width: 250px;
-    }
-    .menu-buttons {
-      margin-top: 30px;
+      color: #555;
+      margin-top: 10px;
+      margin-bottom: 40px;
     }
     button {
-      padding: 12px 24px;
-      font-size: 18px;
-      margin: 10px;
+      display: block;
+      margin: 15px auto;
+      padding: 12px 30px;
+      font-size: 20px;
+      border-radius: 8px;
+      border: none;
       background-color: #8f7a66;
       color: white;
-      border: none;
-      border-radius: 6px;
       cursor: pointer;
+      transition: background-color 0.2s;
     }
     button:hover {
-      background-color: #a3917b;
+      background-color: #a28970;
     }
   </style>
 </head>
 <body>
 
-  <h1>Chào mừng đến với 2048</h1>
-  <input type="text" id="username" placeholder="Nhập tên người chơi..." />
+  <h1>2048 Menu</h1>
+  <div class="username">Người chơi: <span id="usernameDisplay"></span></div>
 
-  <div class="menu-buttons">
-    <button onclick="newGame()">New Game</button>
-    <button onclick="resumeGame()">Resume</button>
-    <button onclick="exitGame()">Thoát</button>
-  </div>
+  <button onclick="startNewGame()">New Game</button>
+  <button onclick="resumeGame()">Resume</button>
+  <button onclick="viewTopPlayers()">Top Player</button>
+  <button onclick="logout()">Logout</button>
 
   <script>
-    function getUsernameInput() {
-      const username = document.getElementById("username").value.trim();
-      if (username === "") {
-        alert("Vui lòng nhập tên người chơi!");
-        return null;
-      }
-      localStorage.setItem("username", username);
-      return username;
+    const username = localStorage.getItem("username");
+    if (!username) {
+      alert("Bạn chưa đăng nhập! Quay lại trang đăng nhập.");
+      window.location.href = "/login.html";
     }
+    document.getElementById("usernameDisplay").textContent = username;
 
-    function newGame() {
-      const username = getUsernameInput();
-      if (!username) return;
-
-      // Gửi yêu cầu khởi tạo game mới nếu backend có xử lý
-      fetch("/api/newgame", {
+    function startNewGame() {
+      // Xóa trạng thái cũ để game.html không load lại
+      fetch("/api/clear", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username })
-      }).finally(() => {
+        body: JSON.stringify({ username: username })
+      }).then(() => {
         window.location.href = "/game.html";
       });
     }
 
     function resumeGame() {
-      const username = getUsernameInput();
-      if (!username) return;
-
-      // Gửi yêu cầu tải lại trạng thái nếu backend có xử lý
-      fetch("/api/load", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username })
-      }).then(res => res.json())
-        .then(data => {
-          if (data && data.matrix) {
-            window.location.href = "/game.html";
-          } else {
-            alert("Không tìm thấy trạng thái để resume!");
-          }
-        }).catch(() => {
-          alert("Lỗi khi tải trạng thái trò chơi.");
-        });
+      // Tới game.html, game sẽ tự load từ server
+      window.location.href = "/game.html";
     }
 
-    function exitGame() {
-      window.location.href = "https://www.google.com";
+    function viewTopPlayers() {
+      window.location.href = "/top.html";
+    }
+
+    function logout() {
+      localStorage.removeItem("username");
+      window.location.href = "/login.html";
     }
   </script>
-
 </body>
 </html>
