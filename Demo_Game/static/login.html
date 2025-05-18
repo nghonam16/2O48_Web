@@ -2,22 +2,119 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Đăng nhập / Đăng ký</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <title>2048 - Đăng nhập</title>
+  <style>
+    body {
+      background-color: #faf8ef;
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      padding-top: 120px;
+    }
+    h1 {
+      color: #776e65;
+    }
+    input {
+      display: block;
+      margin: 10px auto;
+      padding: 10px;
+      width: 260px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    button {
+      padding: 10px 25px;
+      font-size: 16px;
+      margin: 10px 5px;
+      background-color: #8f7a66;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #a3917b;
+    }
+    .message {
+      color: red;
+      margin-top: 10px;
+    }
+  </style>
 </head>
 <body>
-  <h2>Đăng nhập / Đăng ký</h2>
 
-  <form id="auth-form">
-    <input type="text" id="username" placeholder="Tên đăng nhập" required><br>
-    <input type="password" id="password" placeholder="Mật khẩu" required><br>
-    
-    <button type="button" onclick="login()">Đăng nhập</button>
-    <button type="button" onclick="register()">Đăng ký</button>
-  </form>
+  <h1>Đăng nhập vào 2048</h1>
 
-  <p id="response"></p>
+  <input type="text" id="username" placeholder="Tên người chơi" />
+  <input type="password" id="password" placeholder="Mật khẩu" />
 
-  <script src="/static/auth.js"></script>
+  <div>
+    <button onclick="login()">Đăng nhập</button>
+    <button onclick="register()">Đăng ký</button>
+  </div>
+
+  <div class="message" id="message"></div>
+
+  <script>
+    function showMessage(msg, isError = true) {
+      const m = document.getElementById("message");
+      m.style.color = isError ? "red" : "green";
+      m.textContent = msg;
+    }
+
+    function getCredentials() {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+      if (!username || !password) {
+        showMessage("Vui lòng nhập đầy đủ tên và mật khẩu.");
+        return null;
+      }
+      return { username, password };
+    }
+
+    function login() {
+      const data = getCredentials();
+      if (!data) return;
+
+      fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      })
+      .then(res => res.json())
+      .then(res => {
+        if (res.success) {
+          localStorage.setItem("username", data.username);
+          window.location.href = "/menu.html";
+        } else {
+          showMessage(res.message || "Đăng nhập thất bại.");
+        }
+      })
+      .catch(() => showMessage("Lỗi kết nối đến server."));
+    }
+
+    function register() {
+      const data = getCredentials();
+      if (!data) return;
+
+      fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      })
+      .then(res => res.json())
+      .then(res => {
+        if (res.success) {
+          localStorage.setItem("username", data.username);
+          showMessage("Đăng ký thành công!", false);
+          setTimeout(() => window.location.href = "/menu.html", 1000);
+        } else {
+          showMessage(res.message || "Đăng ký thất bại.");
+        }
+      })
+      .catch(() => showMessage("Lỗi kết nối đến server."));
+    }
+  </script>
+
 </body>
 </html>
