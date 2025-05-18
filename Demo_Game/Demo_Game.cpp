@@ -91,34 +91,6 @@ int main() {
         return crow::response{ crow::json::wvalue{{"message", "Sai tài khoản hoặc mật khẩu!"}} };
     });
 
-    CROW_ROUTE(app, "/api/save").methods("POST"_method)([](const crow::request& req) {
-        auto data = crow::json::load(req.body);
-        if (!data) return crow::response(400, "Invalid JSON");
-
-        std::string username = data["username"].s();
-        auto matrix = data["matrix"];
-        int score = data["score"].i();
-
-        // Ghi file nhị phân (ví dụ đơn giản)
-        std::ofstream out("save/" + username + ".txt");  // bạn có thể dùng .bin nếu muốn
-        if (out) {
-            out << "Username: " << username << "\n";
-            out << "Score: " << score << "\n";
-            out << "Matrix:\n";
-            for (auto& row : matrix) {
-                for (auto& val : row) {
-                    out << val.i() << " ";
-                }
-                out << "\n";
-            }
-            out.close();
-        }
-
-        crow::json::wvalue res;
-        res["reply"] = "Lưu trạng thái thành công cho " + username;
-        return crow::response{ res };
-     });
-
     CROW_ROUTE(app, "/api/load").methods("POST"_method)([](const crow::request& req) {
         auto data = crow::json::load(req.body);
         if (!data || !data.has("username"))
