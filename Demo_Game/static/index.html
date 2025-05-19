@@ -2,66 +2,179 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>2048 Menu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>2048 Login/Register</title>
   <style>
     body {
       background-color: #faf8ef;
       font-family: 'Segoe UI', sans-serif;
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
+      justify-content: center;
       height: 100vh;
     }
-    .menu-container {
-      text-align: center;
+    h1 {
+      color: #776e65;
+    }
+    .form-container {
       background: #bbada0;
-      padding: 40px;
+      padding: 30px;
       border-radius: 12px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      width: 300px;
+      text-align: center;
+      margin-bottom: 20px;
     }
-    .menu-container h1 {
-      color: white;
-      margin-bottom: 30px;
+    input[type="text"], input[type="password"] {
+      width: 90%;
+      padding: 10px;
+      margin: 8px 0;
+      border: none;
+      border-radius: 5px;
     }
     button {
-      display: block;
-      width: 200px;
-      padding: 15px;
-      margin: 10px auto;
-      font-size: 18px;
-      background: #eee4da;
+      width: 100%;
+      padding: 12px;
+      margin-top: 12px;
+      font-size: 16px;
       border: none;
-      border-radius: 8px;
+      border-radius: 6px;
       cursor: pointer;
+      background: #eee4da;
       transition: background 0.2s;
     }
     button:hover {
       background: #f2b179;
     }
+    #game-controls {
+      display: none;
+      margin-top: 20px;
+    }
   </style>
 </head>
 <body>
-  <div class="menu-container">
-    <h1>2048 Game Menu</h1>
+  <h1>2048 Login/Register</h1>
+
+  <div class="form-container" id="auth-forms">
+    <input type="text" id="username" placeholder="Username" />
+    <input type="password" id="password" placeholder="Password" />
+    <button onclick="login()">Login</button>
+    <button onclick="register()">Register</button>
+    <p id="message" style="color: red; margin-top: 10px;"></p>
+  </div>
+
+  <div id="game-controls">
     <button onclick="newGame()">New Game</button>
-    <button onclick="resumeGame()">Resume</button>
-    <button onclick="exitGame()">Exit</button>
+    <button onclick="resumeGame()">Resume Game</button>
   </div>
 
   <script>
-    function newGame() {
-      fetch('/new-game', { method: 'POST' })
-        .then(res => res.ok ? window.location.href = "/game.html" : alert("Error"))
+    let currentUser = null;
+
+    async function login() {
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value.trim();
+      if (!username || !password) {
+        showMessage("Vui lòng nhập username và password");
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({username, password})
+        });
+        const data = await res.json();
+        if (data.error) {
+          showMessage(data.error);
+        } else {
+          showMessage('');
+          currentUser = username;
+          showGameControls();
+        }
+      } catch {
+        showMessage("Lỗi kết nối server");
+      }
     }
 
-    function resumeGame() {
-      fetch('/resume', { method: 'GET' })
-        .then(res => res.ok ? window.location.href = "/game.html" : alert("No saved game found."))
+    async function register() {
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value.trim();
+      if (!username || !password) {
+        showMessage("Vui lòng nhập username và password");
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/register', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({username, password})
+        });
+        const data = await res.json();
+        if (data.error) {
+          showMessage(data.error);
+        } else {
+          showMessage('Đăng ký thành công! Bạn có thể đăng nhập.');
+        }
+      } catch {
+        showMessage("Lỗi kết nối server");
+      }
     }
 
-    function exitGame() {
-      window.close(); 
+    function showMessage(msg) {
+      document.getElementById('message').textContent = msg;
+    }
+
+    function showGameControls() {
+      document.getElementById('auth-forms').style.display = 'none';
+      document.getElementById('game-controls').style.display = 'block';
+    }
+
+    async function newGame() {
+      if (!currentUser) {
+        alert("Bạn phải đăng nhập trước!");
+        return;
+      }
+      try {
+        const res = await fetch('/new-game', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({username: currentUser})
+        });
+        if (res.ok) {
+          window.location.href = "/game.html?user=" + encodeURIComponent(currentUser);
+        } else {
+          alert("Lỗi khi bắt đầu game mới");
+        }
+      } catch {
+        alert("Lỗi kết nối server");
+      }
+    }
+
+    async function resumeGame() {
+      if (!currentUser) {
+        alert("Bạn phải đăng nhập trước!");
+        return;
+      }
+      try {
+        // Kiểm tra server có dữ liệu save không
+        const res = await fetch('/api/load?username=' + encodeURIComponent(currentUser));
+        if (res.ok) {
+          const data = await res.json();
+          if (data.error) {
+            alert(data.error);
+          } else {
+            window.location.href = "/game.html?user=" + encodeURIComponent(currentUser);
+          }
+        } else {
+          alert("Không có dữ liệu lưu trữ");
+        }
+      } catch {
+        alert("Lỗi kết nối server");
+      }
     }
   </script>
 </body>
