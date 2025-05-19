@@ -1,5 +1,6 @@
 ﻿#include "include/crow_all.h"
 #include "User.h"
+#include "json.hpp"
 #include "TopPlayer.h"
 #include <fstream>
 #include <sstream>
@@ -14,6 +15,21 @@ struct Player {
     std::string username;
     int score;
 };
+
+using json = nlohmann::json;
+
+bool saveGameState(const std::string& username, const json& gameState) {
+    std::filesystem::create_directory("save");
+
+    std::string filepath = "save/" + username + ".json";
+    std::ofstream ofs(filepath);
+    if (!ofs.is_open()) return false;
+
+    ofs << gameState.dump(4); // ghi JSON ra file với indent 4 spaces
+    ofs.close();
+
+    return true;
+}
 
 // Đọc nội dung file vào string
 std::string read_file(const std::string& filename) {
@@ -124,57 +140,48 @@ int main() {
         return crow::response(res);
         });
 
-    // Save trạng thái người chơi (ma trận + điểm)
+    // Save trạng thái người chơi chung vào save.json
+    // api save trạng thái
     CROW_ROUTE(app, "/api/save").methods("POST"_method)([](const crow::request& req) {
         auto data = crow::json::load(req.body);
         if (!data || !data.has("username") || !data.has("matrix") || !data.has("score"))
             return crow::response(400, "Thiếu dữ liệu");
 
         std::string username = data["username"].s();
-        auto matrix = data["matrix"];
+        int matrix[4][4];
+        for (int i = 0; i < 4; ++i)
+            for (int j = 0; j < 4; ++j)
+                matrix[i][j] = data["matrix"][i][j].i();
+
         int score = data["score"].i();
 
-        std::ofstream out("save/" + username + ".bin", std::ios::binary);
-        if (!out) return crow::response(500, "Không thể ghi file");
-
-        for (int i = 0; i < 4; ++i)
-            for (int j = 0; j < 4; ++j) {
-                int val = matrix[i][j].i();
-                out.write(reinterpret_cast<char*>(&val), sizeof(int));
-            }
-
-        out.write(reinterpret_cast<char*>(&score), sizeof(int));
-        out.close();
-
-        return crow::response(crow::json::wvalue{ {"message", "Lưu trạng thái thành công!"} });
+        if (saveGameState(username, matrix, score))
+            return crow::response(200, "Lưu trạng thái thành công");
+        else
+            return crow::response(500, "Lưu trạng thái thất bại");
         });
 
-    // Load trạng thái người chơi từ file .bin
+    // api load trạng thái
     CROW_ROUTE(app, "/api/load").methods("POST"_method)([](const crow::request& req) {
         auto data = crow::json::load(req.body);
         if (!data || !data.has("username"))
             return crow::response(400, "Thiếu tên người dùng");
 
         std::string username = data["username"].s();
-        std::ifstream in("save/" + username + ".bin", std::ios::binary);
-        if (!in) return crow::response(404, "Không tìm thấy file lưu");
-
-        int matrix[4][4], score;
-        for (int i = 0; i < 4; ++i)
-            for (int j = 0; j < 4; ++j)
-                in.read(reinterpret_cast<char*>(&matrix[i][j]), sizeof(int));
-
-        in.read(reinterpret_cast<char*>(&score), sizeof(int));
-        in.close();
+        int matrix[4][4];
+        int score = 0;
+        if (!loadGameState(username, matrix, score))
+            return crow::response(404, "Không tìm thấy trạng thái lưu");
 
         crow::json::wvalue res;
         for (int i = 0; i < 4; ++i)
             for (int j = 0; j < 4; ++j)
                 res["matrix"][i][j] = matrix[i][j];
-
         res["score"] = score;
+
         return crow::response(res);
         });
+
 
     // Trả về top người chơi
     CROW_ROUTE(app, "/api/top")([] {

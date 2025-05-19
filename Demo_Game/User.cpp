@@ -1,44 +1,42 @@
-#include "User.h"
+﻿#include "User.h"
+#include "json.hpp"
 #include <fstream>
 #include <filesystem>
 
+using json = nlohmann::json;
+
 bool registerAccount(const std::string& username, const std::string& password) {
     std::filesystem::create_directory("users");
+    std::string filepath = "users/" + username + ".json";
 
-    std::ifstream infile("users/" + username + ".bin", std::ios::binary);
-    if (infile.good()) return false;
+    // Nếu file tồn tại thì trả về false (đã có tài khoản)
+    if (std::filesystem::exists(filepath)) return false;
 
-    std::ofstream outfile("users/" + username + ".bin", std::ios::binary);
-    if (!outfile) return false;
+    // Tạo JSON lưu username và password
+    json j;
+    j["username"] = username;
+    j["password"] = password;
 
-    size_t nameLen = username.size();
-    size_t passLen = password.size();
+    std::ofstream ofs(filepath);
+    if (!ofs) return false;
 
-    outfile.write(reinterpret_cast<char*>(&nameLen), sizeof(size_t));
-    outfile.write(username.c_str(), nameLen);
-
-    outfile.write(reinterpret_cast<char*>(&passLen), sizeof(size_t));
-    outfile.write(password.c_str(), passLen);
-
-    outfile.close();
+    ofs << j.dump(4); // ghi file đẹp (indent 4 space)
+    ofs.close();
     return true;
 }
 
 bool loginAccount(const std::string& username, const std::string& password) {
-    std::ifstream infile("users/" + username + ".bin", std::ios::binary);
-    if (!infile) return false;
+    std::string filepath = "users/" + username + ".json";
+    if (!std::filesystem::exists(filepath)) return false;
 
-    size_t nameLen, passLen;
-    std::string storedUsername, storedPassword;
+    std::ifstream ifs(filepath);
+    if (!ifs) return false;
 
-    infile.read(reinterpret_cast<char*>(&nameLen), sizeof(size_t));
-    storedUsername.resize(nameLen);
-    infile.read(&storedUsername[0], nameLen);
+    json j;
+    ifs >> j;
+    ifs.close();
 
-    infile.read(reinterpret_cast<char*>(&passLen), sizeof(size_t));
-    storedPassword.resize(passLen);
-    infile.read(&storedPassword[0], passLen);
-
-    infile.close();
-    return storedPassword == password;
+    // So sánh password
+    if (!j.contains("password")) return false;
+    return j["password"] == password;
 }
