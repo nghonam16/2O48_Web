@@ -1,39 +1,24 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <title>Đăng ký - 2048</title>
+  <meta charset="UTF-8" />
+  <title>Đăng ký 2048</title>
   <style>
-    body { font-family: 'Segoe UI'; text-align: center; margin-top: 100px; background: #faf8ef; }
-    input, button { padding: 10px; font-size: 18px; margin: 10px; border-radius: 6px; }
-    button { background-color: #8f7a66; color: white; border: none; cursor: pointer; }
+    body { font-family: Arial, sans-serif; background: #faf8ef; text-align: center; padding-top: 100px; }
+    input { padding: 10px; margin: 10px; width: 250px; font-size: 16px; }
+    button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+    .message { color: red; margin-top: 15px; }
   </style>
 </head>
 <body>
-  <h1>Đăng ký</h1>
-  <input type="text" id="username" placeholder="Tên đăng nhập"><br>
-  <input type="password" id="password" placeholder="Mật khẩu"><br>
-  <button onclick="register()">Tạo tài khoản</button>
-  <button onclick="window.location.href='/login.html'">Đã có tài khoản</button>
+  <h1>Đăng ký tài khoản</h1>
+  <input type="text" id="username" placeholder="Tên đăng nhập" /><br />
+  <input type="password" id="password" placeholder="Mật khẩu" /><br />
+  <button id="registerBtn">Đăng ký</button>
+  <div class="message" id="msg"></div>
 
-  <script>
-    function register() {
-      fetch("/api/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: document.getElementById("username").value,
-          password: document.getElementById("password").value
-        })
-      })
-      .then(res => res.json())
-      .then(data => {
-        alert(data.reply);
-        if (data.success) {
-          window.location.href = "/login.html";
-        }
-      });
-    }
-  </script>
+  <p>Đã có tài khoản? <a href="login.html">Đăng nhập</a></p>
+
+  <script src="register.js"></script>
 </body>
 </html>
