@@ -1,203 +1,178 @@
-﻿#include "include/crow_all.h"
-#include "User.h"
-#include "json.hpp"
-#include "TopPlayer.h"
+﻿#include <crow.h>
 #include <fstream>
-#include <sstream>
+#include <iostream>
 #include <map>
 #include <vector>
-
-// Giả lập dữ liệu người dùng
-std::map<std::string, std::string> userDB;
-
-// Cấu trúc lưu thông tin người chơi
-struct Player {
-    std::string username;
-    int score;
-};
+#include <mutex>
+#include <json.hpp>
 
 using json = nlohmann::json;
 
-bool saveGameState(const std::string& username, const json& gameState) {
-    std::filesystem::create_directory("save");
+struct UserData {
+    std::string username;
+    std::string password; // Bạn có thể mã hóa password cho bảo mật hơn
+    std::vector<std::vector<int>> matrix;
+    int score = 0;
+};
 
-    std::string filepath = "save/" + username + ".json";
-    std::ofstream ofs(filepath);
-    if (!ofs.is_open()) return false;
+std::map<std::string, UserData> users; // lưu tạm trong bộ nhớ
+std::mutex mtx;
 
-    ofs << gameState.dump(4); // ghi JSON ra file với indent 4 spaces
-    ofs.close();
-
-    return true;
+// Hàm load dữ liệu user từ file (ví dụ file users.json)
+void loadUsers() {
+    std::lock_guard<std::mutex> lock(mtx);
+    std::ifstream in("users.json");
+    if (in) {
+        json j;
+        in >> j;
+        for (auto& [k, v] : j.items()) {
+            UserData ud;
+            ud.username = k;
+            ud.password = v["password"];
+            ud.score = v["score"];
+            ud.matrix = v["matrix"].get<std::vector<std::vector<int>>>();
+            users[k] = ud;
+        }
+    }
 }
 
-// Đọc nội dung file vào string
-std::string read_file(const std::string& filename) {
-    std::ifstream ifs(filename);
-    if (!ifs) return "";
-    std::stringstream buffer;
-    buffer << ifs.rdbuf();
-    return buffer.str();
+// Hàm lưu dữ liệu user vào file
+void saveUsers() {
+    std::lock_guard<std::mutex> lock(mtx);
+    json j;
+    for (auto& [k, v] : users) {
+        j[k] = {
+            {"password", v.password},
+            {"score", v.score},
+            {"matrix", v.matrix}
+        };
+    }
+    std::ofstream out("users.json");
+    out << j.dump(4);
 }
 
-// Ghi trạng thái game mặc định (cho New Game)
-void resetGame() {
-    std::ofstream save("save.json");
-    save << R"({"matrix":[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]],"score":0})";
-    save.close();
-}
-
-// Kiểm tra xem có trạng thái lưu không
-bool hasSavedGame() {
-    std::ifstream save("save.json");
-    return save.good();
-}
-
-// Lưu tài khoản mới (giản lược - chỉ lưu trong map)
-bool registerAccount(const std::string& username, const std::string& password) {
-    if (userDB.count(username)) return false;
-    userDB[username] = password;
-    return true;
-}
-
-// Giả lập lấy danh sách top người chơi
-std::vector<Player> getTopPlayers() {
-    // TODO: Đọc từ file nhị phân nếu có
-    return {
-        {"alice", 2048},
-        {"bob", 1024},
-        {"carol", 512}
-    };
+crow::response createJsonResponse(const json& j) {
+    crow::response res;
+    res.set_header("Content-Type", "application/json");
+    res.write(j.dump());
+    return res;
 }
 
 int main() {
+    loadUsers();
+
     crow::SimpleApp app;
 
-    // Serve trang menu chính
-    CROW_ROUTE(app, "/")([] {
-        return read_file("static/menu.html");
+    CROW_ROUTE(app, "/api/hello").methods("POST"_method)([](const crow::request& req) {
+        auto body = json::parse(req.body);
+        std::string name = body.value("name", "player");
+        json res = { {"reply", "Hello, " + name + "!"} };
+        return createJsonResponse(res);
         });
 
-    // Serve file tĩnh
-    CROW_ROUTE(app, "/static/<string>")([](std::string filename) {
-        std::string content = read_file("static/" + filename);
-        if (content.empty()) return crow::response(404);
-        return crow::response(content);
-        });
-
-    // Hiển thị game.html
-    CROW_ROUTE(app, "/game.html")([] {
-        return read_file("static/game.html");
-        });
-
-    // ===== API SECTION =====
-
-    // New Game: reset trạng thái
-    CROW_ROUTE(app, "/new-game").methods("POST"_method)([] {
-        resetGame();
-        return crow::response(200);
-        });
-
-    // Resume Game: kiểm tra trạng thái
-    CROW_ROUTE(app, "/resume").methods("GET"_method)([] {
-        if (hasSavedGame()) return crow::response(200);
-        return crow::response(404);
-        });
-
-    // Thoát game
-    CROW_ROUTE(app, "/exit").methods("POST"_method)([] {
-        return crow::response("Tạm biệt!");
-        });
-
-    // Đăng ký tài khoản
     CROW_ROUTE(app, "/api/register").methods("POST"_method)([](const crow::request& req) {
-        auto body = crow::json::load(req.body);
-        if (!body) return crow::response(400, "Invalid JSON");
+        auto body = json::parse(req.body);
+        std::string username = body.value("username", "");
+        std::string password = body.value("password", "");
 
-        std::string username = body["username"].s();
-        std::string password = body["password"].s();
-
-        bool success = registerAccount(username, password);
-
-        crow::json::wvalue res;
-        res["success"] = success;
-        res["reply"] = success ? "Đăng ký thành công!" : "Tài khoản đã tồn tại!";
-        return crow::response(res);
-        });
-
-    // Đăng nhập
-    CROW_ROUTE(app, "/api/login").methods("POST"_method)([](const crow::request& req) {
-        auto body = crow::json::load(req.body);
-        if (!body) return crow::response(400);
-
-        std::string username = body["username"].s();
-        std::string password = body["password"].s();
-
-        bool match = userDB.count(username) && userDB[username] == password;
-
-        crow::json::wvalue res;
-        res["message"] = match ? "Đăng nhập thành công!" : "Sai tài khoản hoặc mật khẩu!";
-        return crow::response(res);
-        });
-
-    // Save trạng thái người chơi chung vào save.json
-    // api save trạng thái
-    CROW_ROUTE(app, "/api/save").methods("POST"_method)([](const crow::request& req) {
-        auto data = crow::json::load(req.body);
-        if (!data || !data.has("username") || !data.has("matrix") || !data.has("score"))
-            return crow::response(400, "Thiếu dữ liệu");
-
-        std::string username = data["username"].s();
-        int matrix[4][4];
-        for (int i = 0; i < 4; ++i)
-            for (int j = 0; j < 4; ++j)
-                matrix[i][j] = data["matrix"][i][j].i();
-
-        int score = data["score"].i();
-
-        if (saveGameState(username, matrix, score))
-            return crow::response(200, "Lưu trạng thái thành công");
-        else
-            return crow::response(500, "Lưu trạng thái thất bại");
-        });
-
-    // api load trạng thái
-    CROW_ROUTE(app, "/api/load").methods("POST"_method)([](const crow::request& req) {
-        auto data = crow::json::load(req.body);
-        if (!data || !data.has("username"))
-            return crow::response(400, "Thiếu tên người dùng");
-
-        std::string username = data["username"].s();
-        int matrix[4][4];
-        int score = 0;
-        if (!loadGameState(username, matrix, score))
-            return crow::response(404, "Không tìm thấy trạng thái lưu");
-
-        crow::json::wvalue res;
-        for (int i = 0; i < 4; ++i)
-            for (int j = 0; j < 4; ++j)
-                res["matrix"][i][j] = matrix[i][j];
-        res["score"] = score;
-
-        return crow::response(res);
-        });
-
-
-    // Trả về top người chơi
-    CROW_ROUTE(app, "/api/top")([] {
-        crow::json::wvalue result;
-        result["players"] = crow::json::wvalue::list();
-
-        for (const auto& p : getTopPlayers()) {
-            crow::json::wvalue item;
-            item["username"] = p.username;
-            item["score"] = p.score;
-            result["players"].emplace_back(std::move(item));
+        if (username.empty() || password.empty()) {
+            return createJsonResponse({ {"error", "Username hoặc password không được để trống"} });
         }
 
-        return crow::response(result);
+        std::lock_guard<std::mutex> lock(mtx);
+        if (users.count(username)) {
+            return createJsonResponse({ {"error", "Username đã tồn tại"} });
+        }
+
+        UserData newUser;
+        newUser.username = username;
+        newUser.password = password;
+        newUser.score = 0;
+        newUser.matrix = std::vector<std::vector<int>>(4, std::vector<int>(4, 0));
+        users[username] = newUser;
+
+        saveUsers();
+
+        return createJsonResponse({ {"reply", "Đăng ký thành công"} });
         });
 
-    // Chạy app
+    CROW_ROUTE(app, "/api/login").methods("POST"_method)([](const crow::request& req) {
+        auto body = json::parse(req.body);
+        std::string username = body.value("username", "");
+        std::string password = body.value("password", "");
+
+        std::lock_guard<std::mutex> lock(mtx);
+        if (!users.count(username)) {
+            return createJsonResponse({ {"error", "Username không tồn tại"} });
+        }
+        if (users[username].password != password) {
+            return createJsonResponse({ {"error", "Sai mật khẩu"} });
+        }
+
+        return createJsonResponse({ {"reply", "Đăng nhập thành công"} });
+        });
+
+    CROW_ROUTE(app, "/api/save").methods("POST"_method)([](const crow::request& req) {
+        auto body = json::parse(req.body);
+        std::string username = body.value("username", "");
+        auto matrix = body.value("matrix", json::array());
+        int score = body.value("score", 0);
+
+        std::lock_guard<std::mutex> lock(mtx);
+        if (!users.count(username)) {
+            return createJsonResponse({ {"error", "User không tồn tại"} });
+        }
+
+        // Cập nhật trạng thái game
+        users[username].matrix = matrix.get<std::vector<std::vector<int>>>();
+        users[username].score = score;
+
+        saveUsers();
+
+        return createJsonResponse({ {"reply", "Lưu trạng thái thành công"} });
+        });
+
+    CROW_ROUTE(app, "/api/load").methods("GET"_method)([](const crow::request& req) {
+        auto url_params = crow::query_string(req.url);
+        std::string username = url_params.get("username") ? url_params.get("username") : "";
+
+        std::lock_guard<std::mutex> lock(mtx);
+        if (!users.count(username)) {
+            return createJsonResponse({ {"error", "User không tồn tại"} });
+        }
+
+        json res = {
+            {"matrix", users[username].matrix},
+            {"score", users[username].score}
+        };
+        return createJsonResponse(res);
+        });
+
+    CROW_ROUTE(app, "/api/top").methods("GET"_method)([](const crow::request& req) {
+        std::lock_guard<std::mutex> lock(mtx);
+        // Lấy 10 user có điểm cao nhất
+        std::vector<UserData> userList;
+        for (auto& [k, v] : users) {
+            userList.push_back(v);
+        }
+        std::sort(userList.begin(), userList.end(), [](const UserData& a, const UserData& b) {
+            return a.score > b.score;
+            });
+
+        json res;
+        res["players"] = json::array();
+        int limit = std::min(10, (int)userList.size());
+        for (int i = 0; i < limit; ++i) {
+            res["players"].push_back({
+                {"username", userList[i].username},
+                {"score", userList[i].score}
+                });
+        }
+        return createJsonResponse(res);
+        });
+
+    std::cout << "Server running on http://localhost:18080\n";
     app.port(18080).multithreaded().run();
+
+    return 0;
 }
