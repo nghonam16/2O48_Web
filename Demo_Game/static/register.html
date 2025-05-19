@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Đăng ký tài khoản</title>
+  <style>
+    body {
+      background-color: #faf8ef;
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      margin: 0;
+      padding-top: 80px;
+    }
+    h1 {
+      color: #776e65;
+      font-size: 36px;
+    }
+    .form-container {
+      background-color: #eee4da;
+      padding: 30px;
+      border-radius: 10px;
+      width: 300px;
+      margin: 0 auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    input {
+      width: 90%;
+      padding: 10px;
+      margin: 10px 0;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin-top: 10px;
+      background-color: #8f7a66;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #a28970;
+    }
+    p {
+      margin-top: 20px;
+      font-size: 14px;
+    }
+    a {
+      color: #8f7a66;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Đăng ký tài khoản</h1>
+  <div class="form-container">
+    <input type="text" id="username" placeholder="Tên đăng nhập" required>
+    <input type="password" id="password" placeholder="Mật khẩu" required>
+    <button onclick="register()">Đăng ký</button>
+
+    <p>Đã có tài khoản? <a href="login.html">Đăng nhập</a></p>
+  </div>
+
+  <script>
+    function register() {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+
+      if (!username || !password) {
+        alert("Vui lòng nhập đầy đủ thông tin!");
+        return;
+      }
+
+      fetch("/api/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ username, password })
+      })
+      .then(res => res.json())
+      .then(data => {
+        alert(data.reply);
+        if (data.success) {
+          window.location.href = "login.html";
+        }
+      })
+      .catch(err => {
+        alert("Lỗi kết nối máy chủ!");
+      });
+    }
+  </script>
+
+</body>
+</html>
