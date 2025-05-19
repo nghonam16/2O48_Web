@@ -1,41 +1,24 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <title>Đăng nhập - 2048</title>
+  <meta charset="UTF-8" />
+  <title>Đăng nhập 2048</title>
   <style>
-    body { font-family: 'Segoe UI'; text-align: center; margin-top: 100px; background: #faf8ef; }
-    input, button { padding: 10px; font-size: 18px; margin: 10px; border-radius: 6px; }
-    button { background-color: #8f7a66; color: white; border: none; cursor: pointer; }
+    body { font-family: Arial, sans-serif; background: #faf8ef; text-align: center; padding-top: 100px; }
+    input { padding: 10px; margin: 10px; width: 250px; font-size: 16px; }
+    button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+    .message { color: red; margin-top: 15px; }
   </style>
 </head>
 <body>
   <h1>Đăng nhập</h1>
-  <input type="text" id="username" placeholder="Tên đăng nhập"><br>
-  <input type="password" id="password" placeholder="Mật khẩu"><br>
-  <button onclick="login()">Đăng nhập</button>
-  <button onclick="window.location.href='/register.html'">Chưa có tài khoản?</button>
+  <input type="text" id="username" placeholder="Tên đăng nhập" /><br />
+  <input type="password" id="password" placeholder="Mật khẩu" /><br />
+  <button id="loginBtn">Đăng nhập</button>
+  <div class="message" id="msg"></div>
 
-  <script>
-    function login() {
-      fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: document.getElementById("username").value,
-          password: document.getElementById("password").value
-        })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.message.includes("thành công")) {
-          localStorage.setItem("username", document.getElementById("username").value);
-          window.location.href = "/";
-        } else {
-          alert(data.message);
-        }
-      });
-    }
-  </script>
+  <p>Chưa có tài khoản? <a href="register.html">Đăng ký ngay</a></p>
+
+  <script src="login.js"></script>
 </body>
 </html>
