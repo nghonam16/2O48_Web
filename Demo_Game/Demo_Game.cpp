@@ -180,5 +180,21 @@ int main() {
         return read_file("static/game.html");  // Tạo file này
     });
 
+    CROW_ROUTE(app, "/api/top")([] {
+        crow::json::wvalue result;
+        result["players"] = crow::json::wvalue::list();
+
+        std::vector<Player> topPlayers = getTopPlayers(); // Bạn cần tự viết hàm này
+
+        for (const auto& p : topPlayers) {
+            crow::json::wvalue playerJson;
+            playerJson["username"] = p.username;
+            playerJson["score"] = p.score;
+            result["players"].push_back(playerJson);
+        }
+
+        return crow::response(result);
+        });
+
 }
 
