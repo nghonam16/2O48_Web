@@ -5,12 +5,13 @@
 #include <vector>
 #include <mutex>
 #include <json.hpp>
+#include <algorithm>
 
 using json = nlohmann::json;
 
 struct UserData {
     std::string username;
-    std::string password; // Bạn có thể mã hóa password cho bảo mật hơn
+    std::string password;
     std::vector<std::vector<int>> matrix;
     int score = 0;
 };
@@ -58,11 +59,42 @@ crow::response createJsonResponse(const json& j) {
     return res;
 }
 
+// Hàm trả về file tĩnh theo đường dẫn trong thư mục ./static
+crow::response serveStaticFile(const std::string& filepath) {
+    std::ifstream ifs(filepath, std::ios::binary);
+    if (!ifs) {
+        return crow::response(404, "File not found");
+    }
+    std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+
+    crow::response res;
+    if (filepath.ends_with(".html")) res.set_header("Content-Type", "text/html");
+    else if (filepath.ends_with(".js")) res.set_header("Content-Type", "application/javascript");
+    else if (filepath.ends_with(".css")) res.set_header("Content-Type", "text/css");
+    else if (filepath.ends_with(".json")) res.set_header("Content-Type", "application/json");
+    else res.set_header("Content-Type", "application/octet-stream");
+
+    res.write(content);
+    return res;
+}
+
 int main() {
     loadUsers();
 
     crow::SimpleApp app;
 
+    // Phục vụ trang index.html khi truy cập /
+    CROW_ROUTE(app, "/")([]() {
+        return serveStaticFile("./static/index.html");
+        });
+
+    // Phục vụ các file tĩnh từ /static/...
+    CROW_ROUTE(app, "/static/<string>")([](const std::string& filename) {
+        std::string filepath = "./static/" + filename;
+        return serveStaticFile(filepath);
+        });
+
+    // Các API (giữ nguyên như bạn đã viết)
     CROW_ROUTE(app, "/api/hello").methods("POST"_method)([](const crow::request& req) {
         auto body = json::parse(req.body);
         std::string name = body.value("name", "player");
@@ -171,7 +203,23 @@ int main() {
         return createJsonResponse(res);
         });
 
+    CROW_ROUTE(app, "/new-game").methods("POST"_method)([](const crow::request& req) {
+        auto body = json::parse(req.body);
+        std::string username = body.value("username", "");
+        std::lock_guard<std::mutex> lock(mtx);
+        if (!users.count(username)) {
+            return createJsonResponse({ {"error", "User không tồn tại"} });
+        }
+        // Reset game state
+        users[username].score = 0;
+        users[username].matrix = std::vector<std::vector<int>>(4, std::vector<int>(4, 0));
+        saveUsers();
+        return createJsonResponse({ {"reply", "New game created"} });
+        });
+
+
     std::cout << "Server running on http://localhost:18080\n";
+
     app.port(18080).multithreaded().run();
 
     return 0;
