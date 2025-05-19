@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Bảng xếp hạng - 2048</title>
+  <style>
+    body {
+      background-color: #fdf5e6;
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      padding-top: 50px;
+    }
+    h1 {
+      color: #776e65;
+      font-size: 40px;
+      margin-bottom: 20px;
+    }
+    table {
+      margin: 0 auto;
+      border-collapse: collapse;
+      width: 60%;
+      max-width: 600px;
+    }
+    th, td {
+      padding: 12px;
+      border: 1px solid #d3c6b8;
+      font-size: 18px;
+    }
+    th {
+      background-color: #bbada0;
+      color: white;
+    }
+    tr:nth-child(even) {
+      background-color: #eee4da;
+    }
+    tr:nth-child(odd) {
+      background-color: #f8f4e3;
+    }
+    button {
+      margin-top: 30px;
+      padding: 10px 20px;
+      font-size: 18px;
+      background-color: #8f7a66;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #a28970;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Bảng xếp hạng</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Hạng</th>
+        <th>Người chơi</th>
+        <th>Điểm</th>
+      </tr>
+    </thead>
+    <tbody id="leaderboard">
+      <!-- Dữ liệu sẽ được thêm bằng JavaScript -->
+    </tbody>
+  </table>
+
+  <button onclick="goBack()">Quay lại Menu</button>
+
+  <script>
+    function loadTopPlayers() {
+      fetch("/api/top")
+        .then(res => res.json())
+        .then(data => {
+          const table = document.getElementById("leaderboard");
+          table.innerHTML = "";
+          if (Array.isArray(data.players)) {
+            data.players.forEach((player, index) => {
+              const row = document.createElement("tr");
+              row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${player.username}</td>
+                <td>${player.score}</td>
+              `;
+              table.appendChild(row);
+            });
+          } else {
+            const row = document.createElement("tr");
+            row.innerHTML = `<td colspan="3">Không có dữ liệu</td>`;
+            table.appendChild(row);
+          }
+        })
+        .catch(err => {
+          alert("Lỗi khi tải bảng xếp hạng!");
+        });
+    }
+
+    function goBack() {
+      window.location.href = "/menu.html";
+    }
+
+    window.onload = loadTopPlayers;
+  </script>
+
+</body>
+</html>
