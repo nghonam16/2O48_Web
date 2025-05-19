@@ -93,7 +93,10 @@
         row.forEach(cell => {
           const div = document.createElement("div");
           div.className = "cell";
-          div.textContent = cell === 0 ? "" : cell;
+          if (cell !== 0) {
+            div.classList.add(`cell-${cell}`);
+            div.textContent = cell;
+          }
           grid.appendChild(div);
         });
       });
@@ -102,6 +105,21 @@
 
     function rotateMatrix(mat) {
       return mat[0].map((_, i) => mat.map(row => row[i]).reverse());
+    }
+    
+    function checkGameOver() {
+      for (let i = 0; i < 4; i++) {
+        for (let j = 0; j < 4; j++) {
+          if (matrix[i][j] === 0) return false;
+          if (j < 3 && matrix[i][j] === matrix[i][j + 1]) return false;
+          if (i < 3 && matrix[i][j] === matrix[i + 1][j]) return false;
+        }
+      }
+      return true;
+    }
+
+    function checkWin() {
+      return matrix.some(row => row.includes(2048));
     }
 
     function slide(row) {
@@ -133,6 +151,12 @@
         matrix[i] = newRow;
       }
       if (moved) spawnTile();
+      if (checkWin()) {
+        setTimeout(() => alert("Chúc mừng! Bạn đã đạt 2048!"), 100);
+      }
+      if (checkGameOver()) {
+        setTimeout(() => alert("Game over! Không còn nước đi nào!"), 100);
+      }
       renderGrid();
     }
 
@@ -141,6 +165,12 @@
       matrix = matrix.map(row => row.reverse());
       moveLeft();
       matrix = matrix.map(row => row.reverse());
+      if (checkWin()) {
+        setTimeout(() => alert("Chúc mừng! Bạn đã đạt 2048!"), 100);
+      }
+      if (checkGameOver()) {
+        setTimeout(() => alert("Game over! Không còn nước đi nào!"), 100);
+      }
     }
 
     function moveUp() {
@@ -148,6 +178,12 @@
       matrix = rotateMatrix(matrix);
       moveLeft();
       matrix = rotateMatrix(rotateMatrix(rotateMatrix(matrix)));
+      if (checkWin()) {
+        setTimeout(() => alert("Chúc mừng! Bạn đã đạt 2048!"), 100);
+      }
+      if (checkGameOver()) {
+        setTimeout(() => alert("Game over! Không còn nước đi nào!"), 100);
+      }
     }
 
     function moveDown() {
@@ -155,6 +191,12 @@
       matrix = rotateMatrix(matrix);
       moveRight();
       matrix = rotateMatrix(rotateMatrix(rotateMatrix(matrix)));
+      if (checkWin()) {
+        setTimeout(() => alert("Chúc mừng! Bạn đã đạt 2048!"), 100);
+      }
+      if (checkGameOver()) {
+        setTimeout(() => alert("Game over! Không còn nước đi nào!"), 100);
+      }
     }
 
     function spawnTile() {
