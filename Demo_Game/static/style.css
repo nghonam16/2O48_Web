@@ -1,3 +1,31 @@
+.cell-2    { background: #eee4da; color: #776e65; }
+.cell-4    { background: #ede0c8; color: #776e65; }
+.cell-8    { background: #f2b179; color: white; }
+.cell-16   { background: #f59563; color: white; }
+.cell-32   { background: #f67c5f; color: white; }
+.cell-64   { background: #f65e3b; color: white; }
+.cell-128  { background: #edcf72; color: white; font-size: 20px; }
+.cell-256  { background: #edcc61; color: white; font-size: 20px; }
+.cell-512  { background: #edc850; color: white; font-size: 20px; }
+.cell-1024 { background: #edc53f; color: white; font-size: 18px; }
+.cell-2048 { background: #edc22e; color: white; font-size: 18px; }
+
+.cell {
+  transition: transform 0.2s ease, background-color 0.3s ease;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 body {
     background-color: #f9f9f9;
     font-family: Arial, sans-serif;
