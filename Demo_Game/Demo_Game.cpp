@@ -118,6 +118,12 @@ crow::response serveStaticFile(const std::string& filepath) {
     return res;
 }
 
+void addCorsHeaders(crow::response& res) {
+    res.add_header("Access-Control-Allow-Origin", "*");
+    res.add_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+    res.add_header("Access-Control-Allow-Headers", "Content-Type");
+}
+
 int main() {
     loadUsers();
 
@@ -134,7 +140,6 @@ int main() {
         return serveStaticFile(filepath);
         });
 
-    // Các API (giữ nguyên như bạn đã viết)
     CROW_ROUTE(app, "/api/hello").methods("POST"_method)([](const crow::request& req) {
         auto body = json::parse(req.body);
         std::string name = body.value("name", "player");
@@ -142,53 +147,92 @@ int main() {
         return createJsonResponse(res);
         });
 
-    CROW_ROUTE(app, "/api/register").methods("POST"_method)([](const crow::request& req) {
-        auto body = json::parse(req.body);
-        std::string username = body.value("username", "");
-        std::string password = body.value("password", "");
+    CROW_ROUTE(app, "/api/register").methods(crow::HTTPMethod::Post)([](const crow::request& req) {
+        auto body = crow::json::load(req.body);
+        if (!body || !body.has("username") || !body.has("password") || body["username"].s().size() == 0 || body["password"].s().size() == 0)
+            return crow::response(400, R"({"error":"Vui lòng nhập username và password."})");
 
-        if (username.empty() || password.empty()) {
-            return createJsonResponse({ {"error", "Username hoặc password không được để trống"} });
+        std::string username = body["username"].s();
+        std::string password = body["password"].s();
+
+        // Ví dụ kiểm tra username đã tồn tại
+        {
+            std::lock_guard<std::mutex> lock(mtx);
+            if (users.count(username) > 0) {
+                crow::json::wvalue res;
+                res["error"] = "Username đã tồn tại";
+                auto response = crow::response{ res };
+                response.code = 409; // Conflict
+                response.set_header("Content-Type", "application/json");
+                return response;
+            }
+
+            // Thêm user mới
+            users[username] = UserData{ username, password, std::vector<std::vector<int>>(4, std::vector<int>(4, 0)), 0 };
+            saveUsers();
         }
 
-        std::lock_guard<std::mutex> lock(mtx);
-        if (users.count(username)) {
-            return createJsonResponse({ {"error", "Username đã tồn tại"} });
-        }
-
-        UserData newUser;
-        newUser.username = username;
-        newUser.password = password;
-        newUser.score = 0;
-        newUser.matrix = std::vector<std::vector<int>>(4, std::vector<int>(4, 0));
-        users[username] = newUser;
-
-        saveUsers();
-
-        return createJsonResponse({ {"reply", "Đăng ký thành công"} });
+        crow::json::wvalue res;
+        res["reply"] = "Đăng ký thành công!";
+        auto response = crow::response{ res };
+        response.code = 200;
+        response.set_header("Content-Type", "application/json");
+        return response;
         });
+
+
 
     CROW_ROUTE(app, "/api/login").methods("POST"_method)([](const crow::request& req) {
-        auto body = json::parse(req.body);
-        std::string username = body.value("username", "");
-        std::string password = body.value("password", "");
+        auto body = crow::json::load(req.body);
+        if (!body) {
+            crow::response res;
+            res.code = 400;
+            res.set_header("Content-Type", "application/json");
+            res.write(R"({"error": "Invalid JSON"})");
+            return res;
+        }
+
+        std::string username = body["username"].s();
+        std::string password = body["password"].s();
 
         std::lock_guard<std::mutex> lock(mtx);
-        if (!users.count(username)) {
-            return createJsonResponse({ {"error", "Username không tồn tại"} });
-        }
-        if (users[username].password != password) {
-            return createJsonResponse({ {"error", "Sai mật khẩu"} });
+        if (users.count(username) == 0) {
+            crow::json::wvalue res;
+            res["error"] = "Username không tồn tại";
+            auto response = crow::response{ res };
+            response.code = 404;
+            response.set_header("Content-Type", "application/json");
+            return response;
         }
 
-        return createJsonResponse({ {"reply", "Đăng nhập thành công"} });
+        if (users[username].password != password) {
+            crow::json::wvalue res;
+            res["error"] = "Sai mật khẩu";
+            auto response = crow::response{ res };
+            response.code = 401;
+            response.set_header("Content-Type", "application/json");
+            return response;
+        }
+
+        crow::json::wvalue res;
+        res["reply"] = "Đăng nhập thành công";
+        auto response = crow::response{ res };
+        response.code = 200;
+        response.set_header("Content-Type", "application/json");
+        return response;
         });
+
+
 
     CROW_ROUTE(app, "/api/save").methods("POST"_method)([](const crow::request& req) {
         auto body = json::parse(req.body);
 
         if (!body.contains("username") || !body.contains("matrix") || !body.contains("score")) {
-            return crow::response(400, "Invalid data");
+            crow::response res;
+            res.code = 400;
+            res.set_header("Content-Type", "application/json");
+            res.write(R"({"error": "Dữ liệu không hợp lệ"})");
+            return res;
         }
 
         std::string username = body["username"];
@@ -204,21 +248,34 @@ int main() {
         bool ok = saveGameState(username, state);
 
         if (ok) {
-            json res;
+            crow::json::wvalue res;
             res["reply"] = "Đã lưu thành công!";
-            return crow::response(200, res.dump());
+            auto response = crow::response{ res };
+            response.code = 200;
+            response.set_header("Content-Type", "application/json");
+            return response;
         }
         else {
-            return crow::response(500, "Lỗi khi lưu");
+            crow::response res;
+            res.code = 500;
+            res.set_header("Content-Type", "application/json");
+            res.write(R"({"error": "Lỗi khi lưu"})");
+            return res;
         }
         });
 
 
-    CROW_ROUTE(app, "/api/load")
-        ([](const crow::request& req) {
+
+    CROW_ROUTE(app, "/api/load")([](const crow::request& req) {
         auto url_params = crow::query_string(req.url);
         auto username = url_params.get("username");
-        if (!username) return crow::response(400, "Missing username");
+        if (!username) {
+            crow::response res;
+            res.code = 400;
+            res.set_header("Content-Type", "application/json");
+            res.write(R"({"error": "Thiếu username"})");
+            return res;
+        }
 
         GameState state;
         if (loadGameState(username, state)) {
@@ -230,14 +287,23 @@ int main() {
                     res["matrix"][i].push_back(state.matrix[i][k]);
             }
             res["score"] = state.score;
-            return crow::response(200, res.dump());
+
+            crow::response response;
+            response.code = 200;
+            response.set_header("Content-Type", "application/json");
+            response.write(res.dump());
+            return response;
         }
-        // Nếu chưa có file lưu, trả về dữ liệu trống (null)
-        json empty;
-        empty["matrix"] = nullptr;
-        empty["score"] = nullptr;
-        return crow::response(200, empty.dump());
+
+        crow::json::wvalue res;
+        res["matrix"] = nullptr;
+        res["score"] = nullptr;
+        auto response = crow::response{ res };
+        response.code = 404;
+        response.set_header("Content-Type", "application/json");
+        return response;
         });
+
 
 
     CROW_ROUTE(app, "/api/top").methods("GET"_method)([](const crow::request& req) {
