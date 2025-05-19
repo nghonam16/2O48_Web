@@ -194,6 +194,28 @@ int main() {
         }
 
         return crow::response(result);
+    });
+
+    CROW_ROUTE(app, "/api/register").methods("POST"_method)
+        ([](const crow::request& req) {
+        auto body = crow::json::load(req.body);
+        if (!body) return crow::response(400, "Invalid JSON");
+
+        std::string username = body["username"].s();
+        std::string password = body["password"].s();
+
+        bool ok = registerAccount(username, password); // Bạn cần viết hàm này
+
+        crow::json::wvalue res;
+        if (ok) {
+            res["success"] = true;
+            res["reply"] = "Đăng ký thành công!";
+        }
+        else {
+            res["success"] = false;
+            res["reply"] = "Tài khoản đã tồn tại!";
+        }
+        return crow::response(res);
         });
 
 }
