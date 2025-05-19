@@ -70,6 +70,7 @@ function moveLeft() {
   }
   if (moved) spawnTile();
   renderGrid();
+  checkStatus();
 }
 
 function moveRight() {
@@ -77,6 +78,7 @@ function moveRight() {
   matrix = matrix.map(row => row.reverse());
   moveLeft();
   matrix = matrix.map(row => row.reverse());
+  checkStatus();
 }
 
 function moveUp() {
@@ -84,6 +86,7 @@ function moveUp() {
   matrix = rotateMatrix(matrix);
   moveLeft();
   matrix = rotateMatrix(rotateMatrix(rotateMatrix(matrix)));
+  checkStatus();
 }
 
 function moveDown() {
@@ -91,6 +94,7 @@ function moveDown() {
   matrix = rotateMatrix(matrix);
   moveRight();
   matrix = rotateMatrix(rotateMatrix(rotateMatrix(matrix)));
+  checkStatus();
 }
 
 function spawnTile() {
@@ -164,6 +168,30 @@ function loadGame() {
 
 function exitToMenu() {
   window.location.href = "/menu.html";
+}
+
+// Kiểm tra thắng hoặc thua
+function checkWin() {
+  return matrix.flat().includes(2048);
+}
+
+function checkGameOver() {
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 4; j++) {
+      if (matrix[i][j] === 0) return false;
+      if (j < 3 && matrix[i][j] === matrix[i][j + 1]) return false;
+      if (i < 3 && matrix[i][j] === matrix[i + 1][j]) return false;
+    }
+  }
+  return true;
+}
+
+function checkStatus() {
+  if (checkWin()) {
+    alert("Chúc mừng! Bạn đã đạt 2048!");
+  } else if (checkGameOver()) {
+    alert("Game over! Bạn không còn nước đi nào.");
+  }
 }
 
 document.addEventListener("keydown", e => {
