@@ -56,10 +56,9 @@ bool saveGameState(const std::string& username, const GameState& state) {
     return true;
 }
 
-std::map<std::string, UserData> users; // lưu tạm trong bộ nhớ
+std::map<std::string, UserData> users;
 std::mutex mtx;
 
-// Hàm load dữ liệu user từ file (ví dụ file users.json)
 void loadUsers() {
     std::lock_guard<std::mutex> lock(mtx);
     std::ifstream in("users.json");
@@ -77,7 +76,6 @@ void loadUsers() {
     }
 }
 
-// Hàm lưu dữ liệu user vào file
 void saveUsers() {
     std::lock_guard<std::mutex> lock(mtx);
     json j;
@@ -99,12 +97,9 @@ crow::response createJsonResponse(const json& j) {
     return res;
 }
 
-// Hàm trả về file tĩnh theo đường dẫn trong thư mục ./static
 crow::response serveStaticFile(const std::string& filepath) {
     std::ifstream ifs(filepath, std::ios::binary);
-    if (!ifs) {
-        return crow::response(404, "File not found");
-    }
+    if (!ifs) return crow::response(404, "File not found");
     std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
 
     crow::response res;
@@ -129,26 +124,16 @@ int main() {
 
     crow::SimpleApp app;
 
-    // Phục vụ trang index.html khi truy cập /
     CROW_ROUTE(app, "/")([]() {
         return serveStaticFile("./static/index.html");
         });
 
-    // Phục vụ các file tĩnh từ /static/...
     CROW_ROUTE(app, "/static/<string>")([](const std::string& filename) {
         std::string filepath = "./static/" + filename;
         return serveStaticFile(filepath);
         });
 
-    CROW_ROUTE(app, "/api/hello").methods("POST"_method)([](const crow::request& req) {
-        auto body = json::parse(req.body);
-        std::string name = body.value("name", "player");
-        json res = { {"reply", "Hello, " + name + "!"} };
-        return createJsonResponse(res);
-        });
-
-    CROW_ROUTE(app, "/api/register").methods("POST"_method)
-        ([](const crow::request& req) {
+    CROW_ROUTE(app, "/api/register").methods("POST"_method)([](const crow::request& req) {
         auto body = crow::json::load(req.body);
         if (!body || !body.has("username") || !body.has("password")) {
             return crow::response(400, "Dữ liệu không hợp lệ");
@@ -157,103 +142,71 @@ int main() {
         std::string username = body["username"].s();
         std::string password = body["password"].s();
 
+        std::lock_guard<std::mutex> lock(mtx);
+        if (users.count(username) > 0) {
+            return crow::response(409, "Username đã tồn tại");
+        }
+
+        UserData newUser;
+        newUser.username = username;
+        newUser.password = password;
+        newUser.score = 0;
+        newUser.matrix = std::vector<std::vector<int>>(4, std::vector<int>(4, 0));
+
+        users[username] = newUser;
+        saveUsers();
+
         return crow::response(200, "Đăng ký thành công");
         });
 
     CROW_ROUTE(app, "/api/login").methods("POST"_method)([](const crow::request& req) {
         auto body = crow::json::load(req.body);
-        if (!body) {
-            crow::response res;
-            res.code = 400;
-            res.set_header("Content-Type", "application/json");
-            res.write(R"({"error": "Invalid JSON"})");
-            return res;
-        }
+        if (!body) return crow::response(400, R"({"error": "Invalid JSON"})");
 
         std::string username = body["username"].s();
         std::string password = body["password"].s();
 
         std::lock_guard<std::mutex> lock(mtx);
-        if (users.count(username) == 0) {
-            crow::json::wvalue res;
-            res["error"] = "Username không tồn tại";
-            auto response = crow::response{ res };
-            response.code = 404;
-            response.set_header("Content-Type", "application/json");
-            return response;
-        }
+        if (users.count(username) == 0)
+            return crow::response(404, R"({"error": "Username không tồn tại"})");
 
-        if (users[username].password != password) {
-            crow::json::wvalue res;
-            res["error"] = "Sai mật khẩu";
-            auto response = crow::response{ res };
-            response.code = 401;
-            response.set_header("Content-Type", "application/json");
-            return response;
-        }
+        if (users[username].password != password)
+            return crow::response(401, R"({"error": "Sai mật khẩu"})");
 
-        crow::json::wvalue res;
-        res["reply"] = "Đăng nhập thành công";
-        auto response = crow::response{ res };
-        response.code = 200;
-        response.set_header("Content-Type", "application/json");
-        return response;
+        return crow::response(200, R"({"reply": "Đăng nhập thành công"})");
         });
-
-
 
     CROW_ROUTE(app, "/api/save").methods("POST"_method)([](const crow::request& req) {
         auto body = json::parse(req.body);
-
         if (!body.contains("username") || !body.contains("matrix") || !body.contains("score")) {
-            crow::response res;
-            res.code = 400;
-            res.set_header("Content-Type", "application/json");
-            res.write(R"({"error": "Dữ liệu không hợp lệ"})");
-            return res;
+            return crow::response(400, "Thiếu thông tin");
         }
 
         std::string username = body["username"];
         GameState state;
-        auto mat = body["matrix"];
-
-        for (int i = 0; i < 4; ++i)
-            for (int k = 0; k < 4; ++k)
-                state.matrix[i][k] = mat[i][k];
-
         state.score = body["score"];
 
-        bool ok = saveGameState(username, state);
+        for (int i = 0; i < 4; ++i)
+            for (int j = 0; j < 4; ++j)
+                state.matrix[i][j] = body["matrix"][i][j];
 
-        if (ok) {
-            crow::json::wvalue res;
-            res["reply"] = "Đã lưu thành công!";
-            auto response = crow::response{ res };
-            response.code = 200;
-            response.set_header("Content-Type", "application/json");
-            return response;
+        bool saved = saveGameState(username, state);
+
+        std::lock_guard<std::mutex> lock(mtx);
+        if (users.count(username)) {
+            users[username].score = state.score;
+            users[username].matrix = body["matrix"].get<std::vector<std::vector<int>>>();
+            saveUsers();
         }
-        else {
-            crow::response res;
-            res.code = 500;
-            res.set_header("Content-Type", "application/json");
-            res.write(R"({"error": "Lỗi khi lưu"})");
-            return res;
-        }
+
+        if (saved) return crow::response(200, "Saved");
+        else return crow::response(500, "Không thể lưu");
         });
-
-
 
     CROW_ROUTE(app, "/api/load")([](const crow::request& req) {
         auto url_params = crow::query_string(req.url);
         auto username = url_params.get("username");
-        if (!username) {
-            crow::response res;
-            res.code = 400;
-            res.set_header("Content-Type", "application/json");
-            res.write(R"({"error": "Thiếu username"})");
-            return res;
-        }
+        if (!username) return crow::response(400, R"({"error": "Thiếu username"})");
 
         GameState state;
         if (loadGameState(username, state)) {
@@ -265,35 +218,20 @@ int main() {
                     res["matrix"][i].push_back(state.matrix[i][k]);
             }
             res["score"] = state.score;
-
-            crow::response response;
-            response.code = 200;
-            response.set_header("Content-Type", "application/json");
-            response.write(res.dump());
-            return response;
+            return createJsonResponse(res);
         }
-
-        crow::json::wvalue res;
-        res["matrix"] = nullptr;
-        res["score"] = nullptr;
-        auto response = crow::response{ res };
-        response.code = 404;
-        response.set_header("Content-Type", "application/json");
-        return response;
+        return crow::response(404, R"({"error": "Không tìm thấy game"})");
         });
-
-
 
     CROW_ROUTE(app, "/api/top").methods("GET"_method)([](const crow::request& req) {
         std::lock_guard<std::mutex> lock(mtx);
-        // Lấy 10 user có điểm cao nhất
         std::vector<UserData> userList;
-        for (auto& [k, v] : users) {
+        for (auto& [k, v] : users)
             userList.push_back(v);
-        }
+
         std::sort(userList.begin(), userList.end(), [](const UserData& a, const UserData& b) {
             return a.score > b.score;
-        });
+            });
 
         json res;
         res["players"] = json::array();
@@ -302,10 +240,10 @@ int main() {
             res["players"].push_back({
                 {"username", userList[i].username},
                 {"score", userList[i].score}
-            });
+                });
         }
         return createJsonResponse(res);
-    });
+        });
 
     CROW_ROUTE(app, "/new-game").methods("POST"_method)([](const crow::request& req) {
         auto body = json::parse(req.body);
@@ -314,12 +252,11 @@ int main() {
         std::string username = body["username"];
         GameState newState = { 0 };
         newState.score = 0;
-        // Khởi tạo matrix toàn 0
 
         bool ok = saveGameState(username, newState);
         if (ok) return crow::response(200, "New game started");
         else return crow::response(500, "Lỗi tạo game mới");
-    });
+        });
 
     CROW_ROUTE(app, "/resume")([](const crow::request& req) {
         auto url_params = crow::query_string(req.url);
@@ -327,18 +264,11 @@ int main() {
         if (!username) return crow::response(400, "Missing username");
 
         GameState state;
-        if (loadGameState(username, state)) {
-            return crow::response(200, "Resume OK");
-        }
-        else {
-            return crow::response(404, "No saved game");
-        }
-    });
-
-
+        if (loadGameState(username, state)) return crow::response(200, "Resume OK");
+        else return crow::response(404, "No saved game");
+        });
 
     std::cout << "Server running on http://localhost:18080\n";
-
     app.port(18080).multithreaded().run();
 
     return 0;
