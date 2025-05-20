@@ -151,21 +151,14 @@ int main() {
         ([](const crow::request& req) {
         auto body = crow::json::load(req.body);
         if (!body || !body.has("username") || !body.has("password")) {
-            return crow::response(400, "Vui lòng nhập username và password");
+            return crow::response(400, "Dữ liệu không hợp lệ");
         }
 
         std::string username = body["username"].s();
         std::string password = body["password"].s();
 
-        // Kiểm tra username đã tồn tại hoặc lưu vào file nhị phân...
-        // Giả sử chưa tồn tại thì:
-        // Ghi username + password vào file (bằng cấu trúc BST hay struct của bạn)
-
         return crow::response(200, "Đăng ký thành công");
-    });
-
-
-
+        });
 
     CROW_ROUTE(app, "/api/login").methods("POST"_method)([](const crow::request& req) {
         auto body = crow::json::load(req.body);
