@@ -147,38 +147,23 @@ int main() {
         return createJsonResponse(res);
         });
 
-    CROW_ROUTE(app, "/api/register").methods(crow::HTTPMethod::Post)([](const crow::request& req) {
+    CROW_ROUTE(app, "/api/register").methods("POST"_method)
+        ([](const crow::request& req) {
         auto body = crow::json::load(req.body);
-        if (!body || !body.has("username") || !body.has("password") || body["username"].s().size() == 0 || body["password"].s().size() == 0)
-            return crow::response(400, R"({"error":"Vui lòng nhập username và password."})");
+        if (!body || !body.has("username") || !body.has("password")) {
+            return crow::response(400, "Vui lòng nhập username và password");
+        }
 
         std::string username = body["username"].s();
         std::string password = body["password"].s();
 
-        // Ví dụ kiểm tra username đã tồn tại
-        {
-            std::lock_guard<std::mutex> lock(mtx);
-            if (users.count(username) > 0) {
-                crow::json::wvalue res;
-                res["error"] = "Username đã tồn tại";
-                auto response = crow::response{ res };
-                response.code = 409; // Conflict
-                response.set_header("Content-Type", "application/json");
-                return response;
-            }
+        // Kiểm tra username đã tồn tại hoặc lưu vào file nhị phân...
+        // Giả sử chưa tồn tại thì:
+        // Ghi username + password vào file (bằng cấu trúc BST hay struct của bạn)
 
-            // Thêm user mới
-            users[username] = UserData{ username, password, std::vector<std::vector<int>>(4, std::vector<int>(4, 0)), 0 };
-            saveUsers();
-        }
+        return crow::response(200, "Đăng ký thành công");
+    });
 
-        crow::json::wvalue res;
-        res["reply"] = "Đăng ký thành công!";
-        auto response = crow::response{ res };
-        response.code = 200;
-        response.set_header("Content-Type", "application/json");
-        return response;
-        });
 
 
 
