@@ -69,5 +69,16 @@
 
 </body>
 <script src="/game.js"></script>
-
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const username = localStorage.getItem("username");
+    if (!username) {
+      alert("Bạn chưa đăng nhập! Quay lại trang đăng nhập.");
+      window.location.href = "/login.html";
+      return;
+    }
+    document.getElementById("usernameDisplay").textContent = username;
+    loadGame(); // gọi hàm load dữ liệu game
+  });
+</script>
 </html>
