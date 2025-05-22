@@ -4,17 +4,11 @@
 #include <map>
 #include <vector>
 #include <mutex>
+#include <unordered_map>
 #include <json.hpp>
 #include <algorithm>
 
 using json = nlohmann::json;
-
-struct UserData {
-    std::string username;
-    std::string password;
-    std::vector<std::vector<int>> matrix;
-    int score = 0;
-};
 
 struct GameState {
     int matrix[4][4];
@@ -56,8 +50,34 @@ bool saveGameState(const std::string& username, const GameState& state) {
     return true;
 }
 
+struct UserData {
+    std::string username;
+    std::string password;
+    int score;
+    std::vector<std::vector<int>> matrix;
+};
+
 std::map<std::string, UserData> users;
 std::mutex mtx;
+
+void saveUsers() {
+    std::ofstream ofs("users.dat", std::ios::binary);
+    for (const auto& [username, user] : users) {
+        size_t len = username.size();
+        ofs.write((char*)&len, sizeof(len));
+        ofs.write(username.c_str(), len);
+
+        len = user.password.size();
+        ofs.write((char*)&len, sizeof(len));
+        ofs.write(user.password.c_str(), len);
+
+        ofs.write((char*)&user.score, sizeof(user.score));
+
+        for (int i = 0; i < 4; ++i)
+            for (int j = 0; j < 4; ++j)
+                ofs.write((char*)&user.matrix[i][j], sizeof(int));
+    }
+}
 
 void loadUsers() {
     std::lock_guard<std::mutex> lock(mtx);
@@ -74,20 +94,6 @@ void loadUsers() {
             users[k] = ud;
         }
     }
-}
-
-void saveUsers() {
-    std::lock_guard<std::mutex> lock(mtx);
-    json j;
-    for (auto& [k, v] : users) {
-        j[k] = {
-            {"password", v.password},
-            {"score", v.score},
-            {"matrix", v.matrix}
-        };
-    }
-    std::ofstream out("users.json");
-    out << j.dump(4);
 }
 
 crow::response createJsonResponse(const json& j) {
@@ -158,6 +164,7 @@ int main() {
 
         return crow::response(200, "Đăng ký thành công");
         });
+
 
     CROW_ROUTE(app, "/api/login").methods("POST"_method)([](const crow::request& req) {
         auto body = crow::json::load(req.body);

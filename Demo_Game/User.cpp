@@ -1,42 +1,37 @@
-﻿#include "User.h"
-#include "json.hpp"
-#include <fstream>
-#include <filesystem>
+﻿#include <fstream>
+#include <map>
+#include "User.h"
 
-using json = nlohmann::json;
+extern std::map<std::string, UserData> users;
 
-bool registerAccount(const std::string& username, const std::string& password) {
-    std::filesystem::create_directory("users");
-    std::string filepath = "users/" + username + ".json";
+void saveUsers() {
+    std::ofstream out("users.dat", std::ios::binary);
+    if (!out) return;
 
-    // Nếu file tồn tại thì trả về false (đã có tài khoản)
-    if (std::filesystem::exists(filepath)) return false;
+    int userCount = users.size();
+    out.write(reinterpret_cast<char*>(&userCount), sizeof(userCount));
 
-    // Tạo JSON lưu username và password
-    json j;
-    j["username"] = username;
-    j["password"] = password;
+    for (const auto& [username, user] : users) {
+        // Ghi username
+        int nameLen = user.username.size();
+        out.write(reinterpret_cast<char*>(&nameLen), sizeof(nameLen));
+        out.write(user.username.c_str(), nameLen);
 
-    std::ofstream ofs(filepath);
-    if (!ofs) return false;
+        // Ghi password
+        int passLen = user.password.size();
+        out.write(reinterpret_cast<char*>(&passLen), sizeof(passLen));
+        out.write(user.password.c_str(), passLen);
 
-    ofs << j.dump(4); // ghi file đẹp (indent 4 space)
-    ofs.close();
-    return true;
-}
+        // Ghi điểm
+        out.write(reinterpret_cast<const char*>(&user.score), sizeof(user.score));
 
-bool loginAccount(const std::string& username, const std::string& password) {
-    std::string filepath = "users/" + username + ".json";
-    if (!std::filesystem::exists(filepath)) return false;
+        // Ghi ma trận 4x4
+        for (const auto& row : user.matrix) {
+            for (int val : row) {
+                out.write(reinterpret_cast<const char*>(&val), sizeof(val));
+            }
+        }
+    }
 
-    std::ifstream ifs(filepath);
-    if (!ifs) return false;
-
-    json j;
-    ifs >> j;
-    ifs.close();
-
-    // So sánh password
-    if (!j.contains("password")) return false;
-    return j["password"] == password;
+    out.close();
 }

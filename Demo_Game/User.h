@@ -1,9 +1,10 @@
-﻿#ifndef USER_H
-#define USER_H
-
+﻿#pragma once
 #include <string>
+#include <vector>
 
-bool registerAccount(const std::string& username, const std::string& password);
-bool loginAccount(const std::string& username, const std::string& password);
-
-#endif // USER_H
+struct UserData {
+    std::string username;
+    std::string password;
+    int score;
+    std::vector<std::vector<int>> matrix;
+};
