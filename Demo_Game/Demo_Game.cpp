@@ -3,6 +3,7 @@
 #include "TopPlayer.h"
 #include <fstream>
 #include <unordered_map>
+#include "nlohmann/json.hpp"
 #include <json.hpp>
 
 using json = nlohmann::json;
